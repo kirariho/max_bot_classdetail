@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: bot
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+
+max:
+  url: ${MAX_URL}
+  token: ${MAX_TOKEN}
+  name: ${MAX_BOT_ID}
+  webhook-secret: ${MAX_WEBHOOK_SECRET:}

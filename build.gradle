@@ -1,0 +1,85 @@
+import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.openapi.generator' version '7.25.0'
+}
+
+group = 'ru.classdetail'
+version = '0.0.1-SNAPSHOT'
+description = 'bot'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+
+    implementation ('org.springframework.boot:spring-boot-starter',
+            'org.openapitools:openapi-generator:7.25.0',
+            'org.springframework.boot:spring-boot-starter-web',
+            'org.springdoc:springdoc-openapi-ui:1.6.6',
+            'io.swagger.core.v3:swagger-annotations:2.2.14',
+            'jakarta.validation:jakarta.validation-api',
+            "one.gfw:javax.annotation-api:1.3.2",
+            "org.openapitools:jackson-databind-nullable:0.2.12",
+            "org.junit.jupiter:junit-jupiter-api:6.1.3",
+            "org.springframework:spring-jdbc:7.0.9"
+    )
+
+    testImplementation platform("org.junit:junit-bom:6.1.3")
+
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation ('org.springframework.boot:spring-boot-starter-test',
+            'org.junit.jupiter:junit-jupiter',
+            "org.junit.jupiter:junit-jupiter-api:6.1.3",
+            "io.rest-assured:rest-assured:6.2.0")
+    testCompileOnly 'org.projectlombok:lombok'
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+sourceSets {
+    main {
+        java {
+           srcDirs += "$buildDir/generated/src/main/java"
+        }
+    }
+}
+
+
+tasks.register('generateMaxClient', org.openapitools.generator.gradle.plugin.tasks.GenerateTask){
+    generatorName.set("java")
+    library.set("native");
+    inputSpec.set("shema.yaml");
+    outputDir.set("build/generated");
+    apiPackage.set("ru.classdetail.bot.client.api");
+    modelPackage.set("ru.classdetail.bot.client.model");
+    invokerPackage.set("ru.classdetail.bot.client");
+    ignoreFileOverride.set(".openapi-generator-ignore")
+}
+
+compileJava.dependsOn 'generateMaxClient'
+
+openApiGenerate {
+    configOptions = [useJakartaEe: "true"]
+}

@@ -1,0 +1,51 @@
+services:
+  nginx:
+    container_name: nginx
+    image: nginx:1.31.8-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - web-root:/var/www/html
+
+  postgresql:
+    container_name: postgresql
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    ports:
+      - "5432:5432"
+    restart: always
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d/
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:alpine
+    ports:
+      - "15672:15672"
+    restart: always
+
+  bot_app:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: max_bot
+    depends_on:
+      - postgresql
+      - nginx
+      - rabbitmq
+    networks:
+      - app-network
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  web_root:
