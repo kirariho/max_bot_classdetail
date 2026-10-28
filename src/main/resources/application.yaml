@@ -1,14 +1,16 @@
 spring:
   application:
     name: bot
+  config:
+    import: "optional:configtree:/run/secrets/"
   datasource:
-    url: ${DB_URL}
+    url: jdbc:postgresql://postgresql:5432/${DB_NAME}
     username: ${DB_USERNAME}
-    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
+  rabbitmq:
+    host: rabbitmq
+    username: bot
 
 max:
-  url: ${MAX_URL}
-  token: ${MAX_TOKEN}
-  name: ${MAX_BOT_ID}
-  webhook-secret: ${MAX_WEBHOOK_SECRET:}
+  url: https://platform-api2.max.ru
+  name: classdetail-bot

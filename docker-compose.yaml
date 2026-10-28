@@ -1,51 +1,131 @@
+#configs:
+#  nginx_conf:
+#    file: ./nginx/nginx.conf
+
+secrets:
+  max.token:
+    external: true
+  max.bot.webhook.secret:
+    external: true
+  postgres.password:
+    external: true
+  spring.rabbitmq.password:
+    external: true
+  rabbitmq.default.conf:
+    external: true
+#  nginx_privkey:
+#    file: ./nginx/ssl/privkey.pem
+
 services:
-  nginx:
-    container_name: nginx
-    image: nginx:1.31.8-alpine
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - web-root:/var/www/html
+#  nginx:
+#    container_name: nginx
+#    image: nginx:1.31.8-alpine
+#    restart: always
+#    ports:
+#      - "443:443"
+#    depends_on:
+#      - max_bot
+#    networks:
+#      - app-network
+#    volumes:
+#      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+#      - ./nginx/ssl:/etc/nginx/ssl:ro
 
   postgresql:
-    container_name: postgresql
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASS}
-    ports:
-      - "5432:5432"
-    restart: always
+      POSTGRES_DB: bot_class_detail
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres.password
+    secrets:
+      - postgres.password
+    command: postgres -c max_connections=300
+    healthcheck:
+      test: ["CMD_SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
     volumes:
-      - ./init:/docker-entrypoint-initdb.d/
+      - pgdata:/var/lib/postgresql/18/data
     networks:
       - app-network
 
   rabbitmq:
-    image: rabbitmq:alpine
+    image: rabbitmq:management-alpine
+    user: rabbitmq
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_CONFIG_FILES: /run/secrets
+    secrets:
+      - rabbitmq.default.conf
     ports:
-      - "15672:15672"
-    restart: always
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
-  bot_app:
+
+  max_bot:
+    image: classdetail/max-bot:0.0.1
+    secrets:
+      - max.token
+      - max.bot.webhook.secret
+      - source: postgres.password
+        target: spring.datasource.password
+      - spring.rabbitmq.password
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_CONFIG_IMPORT: "optional:configtree:/run/secrets/"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: bot
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1536M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
     build:
-      context: ./bot
+      context: .
       dockerfile: Dockerfile
-    container_name: max_bot
     depends_on:
       - postgresql
-      - nginx
       - rabbitmq
     networks:
       - app-network
-    restart: always
 
 networks:
   app-network:
-    driver: bridge
+    driver: overlay
+    attachable: true
 
 volumes:
   web_root:
+  rabbitmq_data:
+  pgdata:
